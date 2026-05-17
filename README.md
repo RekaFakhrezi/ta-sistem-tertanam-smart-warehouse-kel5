@@ -5,8 +5,8 @@ Sistem pemantauan inventaris dan kendali keamanan gudang berbasis *Internet of T
 ## 🚀 Tautan Penting
 * **Live Dashboard (Vercel):** [https://ta-sistem-tertanam-smart-warehouse.vercel.app/](https://ta-sistem-tertanam-smart-warehouse.vercel.app/)
 * **Simulasi Perangkat Keras (Wokwi):**
-    * *Node* 1 - Pintu Masuk: `https://wokwi.com/projects/464179129791601665`
-    * *Node* 2 - Pintu Keluar: `https://wokwi.com/projects/464179152493274113`
+    * *Node* 1 - Pintu Masuk: `https://wokwi.com/projects/464244940214350849`
+    * *Node* 2 - Pintu Keluar: `https://wokwi.com/projects/464244960918486017`
     * *Node* 3 - Pusat Kendali: `https://wokwi.com/projects/464180647281580033`
 
 ---
