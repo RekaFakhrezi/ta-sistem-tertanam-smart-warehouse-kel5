@@ -79,7 +79,10 @@ export default function Dashboard() {
     // Fungsi untuk mempublikasikan perintah buka pintu manual
     const handleOpenDoor = () => {
         if (client && isConnected) {
-            client.publish('gudang/control/pintu', 'OPEN', { qos: 1 });
+            // MODIFIKASI: Menambahkan retain: false secara eksplisit bersama qos: 1
+            // Ini menjamin pesan tidak akan menyangkut di broker
+            client.publish('gudang/control/pintu', 'OPEN', { qos: 1, retain: false });
+
             const timestamp = new Date().toLocaleTimeString();
             setLogs((prev) => [
                 { timestamp, type: 'Kendali', message: 'Perintah manual "OPEN" dikirim ke pintu', color: 'text-blue-600' },
