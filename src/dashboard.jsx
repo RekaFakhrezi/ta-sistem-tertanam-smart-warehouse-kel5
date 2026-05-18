@@ -25,9 +25,9 @@ export default function Dashboard() {
         mqttClient.on('connect', () => {
             setIsConnected(true);
             // Melakukan subscribe ke seluruh topik gudang menggunakan Multi-level Wildcard
-            mqttClient.subscribe('gudang/#', (err) => {
+            mqttClient.subscribe('gudang_kel5/#', (err) => {
                 if (!err) {
-                    console.log('Berhasil subscribe ke topik gudang/#');
+                    console.log('Berhasil subscribe ke topik gudang_kel5/#');
                 }
             });
         });
@@ -41,7 +41,7 @@ export default function Dashboard() {
             const timestamp = new Date().toLocaleTimeString();
 
             // 1. Handle data dari sensor masuk
-            if (topic === 'gudang/sensor/masuk') {
+            if (topic === 'gudang_kel5/sensor/masuk') {
                 setInventoryCount((prev) => prev + 1);
                 setLogs((prev) => [
                     { timestamp, type: 'Masuk', message: `Kartu terdeteksi: ${payload}`, color: 'text-green-600' },
@@ -50,7 +50,7 @@ export default function Dashboard() {
             }
 
             // 2. Handle data dari sensor keluar
-            if (topic === 'gudang/sensor/keluar') {
+            if (topic === 'gudang_kel5/sensor/keluar') {
                 setInventoryCount((prev) => Math.max(0, prev - 1)); // Mencegah nilai minus
                 setLogs((prev) => [
                     { timestamp, type: 'Keluar', message: `Kartu terdeteksi: ${payload}`, color: 'text-red-600' },
@@ -59,7 +59,7 @@ export default function Dashboard() {
             }
 
             // 3. Handle data status keaktifan node
-            if (topic.startsWith('gudang/status/')) {
+            if (topic.startsWith('gudang_kel5/status/')) {
                 const nodeName = topic.split('/')[2]; // mengambil 'node1', 'node2', atau 'node3'
                 setNodeStatus((prev) => ({
                     ...prev,
@@ -81,7 +81,7 @@ export default function Dashboard() {
         if (client && isConnected) {
             // MODIFIKASI: Menambahkan retain: false secara eksplisit bersama qos: 1
             // Ini menjamin pesan tidak akan menyangkut di broker
-            client.publish('gudang/control/pintu', 'OPEN', { qos: 1, retain: false });
+            client.publish('gudang_kel5/control/pintu', 'OPEN', { qos: 1, retain: false });
 
             const timestamp = new Date().toLocaleTimeString();
             setLogs((prev) => [
