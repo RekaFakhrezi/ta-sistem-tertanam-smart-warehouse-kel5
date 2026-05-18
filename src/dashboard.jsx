@@ -17,8 +17,8 @@ export default function Dashboard() {
     const [logs, setLogs] = useState([]);
 
     useEffect(() => {
-        // Menghubungkan ke broker EMQX menggunakan protokol WebSocket (secure)
-        const mqttClient = mqtt.connect('wss://broker.hivemq.com:8443/mqtt', {
+        // Menggunakan wss:// (Secure) dan port 8884 khusus untuk HiveMQ
+        const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
             clientId: `react_warehouse_${Math.random().toString(16).substr(2, 8)}`,
         });
 
