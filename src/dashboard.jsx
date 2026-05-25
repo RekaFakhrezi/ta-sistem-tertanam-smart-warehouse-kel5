@@ -22,11 +22,11 @@ export default function Dashboard() {
     const insideUidsRef = useRef([]);
 
     useEffect(() => {
-        // PERBAIKAN: Terhubung ke HiveMQ Private Cluster dengan Secure WebSocket
+        // Terhubung ke HiveMQ Private Cluster dengan Secure WebSocket
         const mqttClient = mqtt.connect('wss://4ce75d10ff4e45c48dedad19ef64c5c1.s1.eu.hivemq.cloud:8884/mqtt', {
             clientId: `react_warehouse_${Math.random().toString(16).substr(2, 8)}`,
-            username: 'kel5sisnamd',          // PERBAIKAN: Username Private Cluster
-            password: '2M@wvfD35qZAuNk'       // PERBAIKAN: Password Private Cluster
+            username: 'kel5sisnamd',
+            password: '2M@wvfD35qZAuNk'
         });
 
         mqttClient.on('connect', () => {
@@ -57,12 +57,19 @@ export default function Dashboard() {
                         { timestamp, type: 'Masuk (Valid)', message: `Akses Diterima: ${payload} masuk ke gudang.`, color: 'text-green-600' },
                         ...prev
                     ]);
+
+                    // PERBAIKAN: Perintahkan Node 3 Buka Pintu
+                    mqttClient.publish('gudang_kel5/control/pintu', `VALID_MASUK:${payload}`);
+
                 } else {
                     // Jika sudah ada, tolak aksesnya (Anti-Passback)
                     setLogs((prev) => [
                         { timestamp, type: 'Ditolak (Masuk)', message: `Akses Ditolak: ${payload} sudah berada di dalam gudang!`, color: 'text-orange-500' },
                         ...prev
                     ]);
+
+                    // PERBAIKAN: Perintahkan Node 3 Tolak Akses
+                    mqttClient.publish('gudang_kel5/control/pintu', 'TOLAK');
                 }
             }
 
@@ -79,12 +86,19 @@ export default function Dashboard() {
                         { timestamp, type: 'Keluar (Valid)', message: `Akses Diterima: ${payload} keluar dari gudang.`, color: 'text-red-600' },
                         ...prev
                     ]);
+
+                    // PERBAIKAN: Perintahkan Node 3 Buka Pintu
+                    mqttClient.publish('gudang_kel5/control/pintu', `VALID_KELUAR:${payload}`);
+
                 } else {
                     // Jika tidak ada di dalam, tolak akses keluarnya
                     setLogs((prev) => [
                         { timestamp, type: 'Ditolak (Keluar)', message: `Akses Ditolak: ${payload} tidak terdaftar di dalam gudang!`, color: 'text-orange-500' },
                         ...prev
                     ]);
+
+                    // PERBAIKAN: Perintahkan Node 3 Tolak Akses
+                    mqttClient.publish('gudang_kel5/control/pintu', 'TOLAK');
                 }
             }
 
