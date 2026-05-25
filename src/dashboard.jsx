@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import mqtt from 'mqtt';
 
 export default function Dashboard() {
     const [client, setClient] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
+
+    // State untuk total inventaris (diambil dari panjang daftar di dalam useRef)
     const [inventoryCount, setInventoryCount] = useState(0);
 
     // State untuk memantau status online/offline tiap node
@@ -16,19 +18,21 @@ export default function Dashboard() {
     // State untuk menyimpan daftar riwayat aktivitas
     const [logs, setLogs] = useState([]);
 
+    // FITUR CERDAS: Menyimpan memori UID apa saja yang saat ini ada di dalam gudang
+    const insideUidsRef = useRef([]);
+
     useEffect(() => {
-        // Menggunakan wss:// (Secure) dan port 8884 khusus untuk HiveMQ
-        const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+        // PERBAIKAN: Terhubung ke HiveMQ Private Cluster dengan Secure WebSocket
+        const mqttClient = mqtt.connect('wss://4ce75d10ff4e45c48dedad19ef64c5c1.s1.eu.hivemq.cloud:8884/mqtt', {
             clientId: `react_warehouse_${Math.random().toString(16).substr(2, 8)}`,
+            username: 'kel5sisnamd',          // PERBAIKAN: Username Private Cluster
+            password: '2M@wvfD35qZAuNk'       // PERBAIKAN: Password Private Cluster
         });
 
         mqttClient.on('connect', () => {
             setIsConnected(true);
-            // Melakukan subscribe ke seluruh topik gudang menggunakan Multi-level Wildcard
             mqttClient.subscribe('gudang_kel5/#', (err) => {
-                if (!err) {
-                    console.log('Berhasil subscribe ke topik gudang_kel5/#');
-                }
+                if (!err) console.log('Berhasil subscribe ke topik gudang_kel5/#');
             });
         });
 
@@ -40,27 +44,53 @@ export default function Dashboard() {
             const payload = message.toString();
             const timestamp = new Date().toLocaleTimeString();
 
-            // 1. Handle data dari sensor masuk
+            // 1. Logika Cerdas Gerbang Masuk (Node 1)
             if (topic === 'gudang_kel5/sensor/masuk') {
-                setInventoryCount((prev) => prev + 1);
-                setLogs((prev) => [
-                    { timestamp, type: 'Masuk', message: `Kartu terdeteksi: ${payload}`, color: 'text-green-600' },
-                    ...prev
-                ]);
+                const currentInside = insideUidsRef.current;
+
+                // Cek apakah UID sudah ada di dalam gudang?
+                if (!currentInside.includes(payload)) {
+                    // Jika belum, izinkan masuk dan tambahkan ke memori
+                    insideUidsRef.current = [...currentInside, payload];
+                    setInventoryCount(insideUidsRef.current.length);
+                    setLogs((prev) => [
+                        { timestamp, type: 'Masuk (Valid)', message: `Akses Diterima: ${payload} masuk ke gudang.`, color: 'text-green-600' },
+                        ...prev
+                    ]);
+                } else {
+                    // Jika sudah ada, tolak aksesnya (Anti-Passback)
+                    setLogs((prev) => [
+                        { timestamp, type: 'Ditolak (Masuk)', message: `Akses Ditolak: ${payload} sudah berada di dalam gudang!`, color: 'text-orange-500' },
+                        ...prev
+                    ]);
+                }
             }
 
-            // 2. Handle data dari sensor keluar
+            // 2. Logika Cerdas Gerbang Keluar (Node 2)
             if (topic === 'gudang_kel5/sensor/keluar') {
-                setInventoryCount((prev) => Math.max(0, prev - 1)); // Mencegah nilai minus
-                setLogs((prev) => [
-                    { timestamp, type: 'Keluar', message: `Kartu terdeteksi: ${payload}`, color: 'text-red-600' },
-                    ...prev
-                ]);
+                const currentInside = insideUidsRef.current;
+
+                // Cek apakah UID tersebut benar-benar ada di dalam gudang?
+                if (currentInside.includes(payload)) {
+                    // Jika ada, izinkan keluar dan hapus dari memori
+                    insideUidsRef.current = currentInside.filter(uid => uid !== payload);
+                    setInventoryCount(insideUidsRef.current.length);
+                    setLogs((prev) => [
+                        { timestamp, type: 'Keluar (Valid)', message: `Akses Diterima: ${payload} keluar dari gudang.`, color: 'text-red-600' },
+                        ...prev
+                    ]);
+                } else {
+                    // Jika tidak ada di dalam, tolak akses keluarnya
+                    setLogs((prev) => [
+                        { timestamp, type: 'Ditolak (Keluar)', message: `Akses Ditolak: ${payload} tidak terdaftar di dalam gudang!`, color: 'text-orange-500' },
+                        ...prev
+                    ]);
+                }
             }
 
-            // 3. Handle data status keaktifan node
+            // 3. Handle data status keaktifan node (LWT)
             if (topic.startsWith('gudang_kel5/status/')) {
-                const nodeName = topic.split('/')[2]; // mengambil 'node1', 'node2', atau 'node3'
+                const nodeName = topic.split('/')[2];
                 setNodeStatus((prev) => ({
                     ...prev,
                     [nodeName]: payload,
@@ -70,7 +100,6 @@ export default function Dashboard() {
 
         setClient(mqttClient);
 
-        // Bersihkan koneksi saat komponen tidak lagi digunakan
         return () => {
             if (mqttClient) mqttClient.end();
         };
@@ -79,13 +108,10 @@ export default function Dashboard() {
     // Fungsi untuk mempublikasikan perintah buka pintu manual
     const handleOpenDoor = () => {
         if (client && isConnected) {
-            // MODIFIKASI: Menambahkan retain: false secara eksplisit bersama qos: 1
-            // Ini menjamin pesan tidak akan menyangkut di broker
             client.publish('gudang_kel5/control/pintu', 'OPEN', { qos: 1, retain: false });
-
             const timestamp = new Date().toLocaleTimeString();
             setLogs((prev) => [
-                { timestamp, type: 'Kendali', message: 'Perintah manual "OPEN" dikirim ke pintu', color: 'text-blue-600' },
+                { timestamp, type: 'Kendali Manual', message: 'Perintah "OPEN" dikirim ke Pusat Kendali', color: 'text-blue-600' },
                 ...prev
             ]);
         }
@@ -114,9 +140,9 @@ export default function Dashboard() {
                     <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Total Personel / Barang di Dalam</h2>
                     <div className="mt-4 flex items-baseline">
                         <span className="text-5xl font-extrabold text-indigo-600">{inventoryCount}</span>
-                        <span className="ml-2 text-sm text-gray-500">entitas</span>
+                        <span className="ml-2 text-sm text-gray-500">entitas valid</span>
                     </div>
-                    <p className="mt-2 text-xs text-gray-400">*Dihitung otomatis berdasarkan sensor gate masuk & keluar</p>
+                    <p className="mt-2 text-xs text-gray-400">*Memiliki fitur Anti-Passback (mencegah akses ganda)</p>
                 </div>
 
                 {/* Card Status Keaktifan Alat */}
